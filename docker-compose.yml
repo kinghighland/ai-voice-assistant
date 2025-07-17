@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # Open WebUI服务
+  # Open WebUI服务 (容器化)
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
     container_name: open-webui
@@ -12,24 +12,14 @@ services:
       - WEBUI_SECRET_KEY=your-secret-key-here
     volumes:
       - open-webui:/app/backend/data
-      - ./voice_assistant_plugin.js:/app/static/voice_assistant_plugin.js
+      # 挂载语音插件到容器内
+      - ./voice_assistant_plugin.js:/app/static/js/voice_assistant_plugin.js
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
-
-  # 语音助手API服务
-  voice-assistant-api:
-    build: .
-    container_name: voice-assistant-api
-    ports:
-      - "8001:8001"
-    environment:
-      - OLLAMA_API_BASE=http://host.docker.internal:11434/api
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    restart: unless-stopped
-    depends_on:
-      - open-webui
 
 volumes:
   open-webui:
+
+# 注意: 语音助手API现在在主机上运行
+# 启动命令: python voice_api_server.py

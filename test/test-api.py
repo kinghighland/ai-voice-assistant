@@ -6,7 +6,7 @@
 import requests
 import json
 
-API_BASE = "http://localhost:8001"
+API_BASE = "http://localhost:8888"
 
 def test_health():
     """测试健康检查接口"""

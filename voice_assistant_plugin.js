@@ -8,7 +8,7 @@ class VoiceAssistantPlugin {
         this.isRecording = false;
         this.mediaRecorder = null;
         this.audioChunks = [];
-        this.apiBaseUrl = 'http://localhost:8001'; // 语音API服务地址
+        this.apiBaseUrl = 'http://localhost:8888'; // 语音API服务地址
         this.init();
     }
 
