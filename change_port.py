@@ -36,7 +36,7 @@ def change_port(old_port, new_port):
             ]
         },
         {
-            'file': 'test-api.py',
+            'file': 'test/test-api.py',
             'patterns': [
                 (f'"http://localhost:{old_port}"', f'"http://localhost:{new_port}"')
             ]

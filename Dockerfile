@@ -22,7 +22,7 @@ COPY voice_api_server.py .
 COPY voice_assistant_plugin.js .
 
 # 暴露端口
-EXPOSE 8888
+EXPOSE 8889
 
 # 启动命令
 CMD ["python", "voice_api_server.py"]
