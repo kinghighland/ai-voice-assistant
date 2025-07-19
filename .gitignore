@@ -172,3 +172,4 @@ celerybeat.pid
 # 添加你不想提交的特定文件
 # config_local.py
 # custom_models/
+/test

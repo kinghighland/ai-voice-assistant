@@ -155,6 +155,10 @@
         });
 
         console.log('✅ 按钮已创建在右下角');
+
+        // 添加键盘支持
+        setupKeyboardSupport();
+
         return button;
     }
 
@@ -509,6 +513,141 @@
         console.log('🎉 强制右下角AI语音按钮已就绪！');
         console.log('📍 位置: 右下角，距离底部120px，距离右边30px');
         console.log('🎤 使用: 按住按钮录音，松开发送');
+    }
+
+    // 设置键盘支持
+    function setupKeyboardSupport() {
+        let activeKey = null;
+        let keyPressed = false;
+
+        // 支持的快捷键配置
+        const shortcuts = [
+            // 主要快捷键 (最推荐)
+            {
+                check: (e) => e.ctrlKey && e.shiftKey && e.code === 'KeyC',
+                name: 'Ctrl+Shift+C',
+                priority: 1
+            },
+            {
+                check: (e) => e.altKey && e.code === 'KeyV',
+                name: 'Alt+V',
+                priority: 1
+            },
+            {
+                check: (e) => e.ctrlKey && e.code === 'KeyM',
+                name: 'Ctrl+M',
+                priority: 1
+            },
+            // 功能键 (次选)
+            {
+                check: (e) => e.code === 'F1',
+                name: 'F1',
+                priority: 2
+            },
+            {
+                check: (e) => e.code === 'F2',
+                name: 'F2',
+                priority: 2
+            },
+            // 可能的Copilot键 (如果存在)
+            {
+                check: (e) => e.code === 'F23' || e.code === 'F24',
+                name: 'Copilot键',
+                priority: 1
+            },
+            // Copilot组合键 (Win+Shift+F23)
+            {
+                check: (e) => e.metaKey && e.shiftKey && e.code === 'F23',
+                name: 'Copilot键(Win+Shift+F23)',
+                priority: 1
+            },
+            {
+                check: (e) => e.code === 'ContextMenu' || e.code === 'Apps' || e.keyCode === 93,
+                name: '菜单键',
+                priority: 2
+            }
+        ];
+
+        // 检查是否是支持的快捷键
+        function getSupportedShortcut(e) {
+            for (const shortcut of shortcuts) {
+                if (shortcut.check(e)) {
+                    return shortcut;
+                }
+            }
+            return null;
+        }
+
+        // 键盘按下事件
+        document.addEventListener('keydown', (e) => {
+            const shortcut = getSupportedShortcut(e);
+
+            if (shortcut && !keyPressed && !isRecording) {
+                e.preventDefault();
+                keyPressed = true;
+                activeKey = shortcut.name;
+
+                // 视觉反馈 - 高亮按钮
+                const button = document.getElementById('force-voice-btn');
+                if (button) {
+                    button.style.transform = 'scale(1.1)';
+                    button.style.boxShadow = '0 6px 25px rgba(139, 92, 246, 0.8)';
+                }
+
+                startRecording();
+                showStatus(`🎤 ${activeKey}录音中... (松开停止)`, 'recording');
+                console.log(`🎹 ${activeKey}开始录音`);
+            }
+        });
+
+        // 键盘松开事件
+        document.addEventListener('keyup', (e) => {
+            const shortcut = getSupportedShortcut(e);
+
+            if (shortcut && keyPressed && activeKey === shortcut.name) {
+                e.preventDefault();
+                keyPressed = false;
+                activeKey = null;
+
+                // 恢复按钮样式
+                const button = document.getElementById('force-voice-btn');
+                if (button) {
+                    button.style.transform = '';
+                    button.style.boxShadow = '';
+                }
+
+                stopRecording();
+                console.log(`🎹 ${shortcut.name}停止录音`);
+            }
+        });
+
+        // 防止页面失去焦点时卡住录音状态
+        window.addEventListener('blur', () => {
+            if (keyPressed && isRecording) {
+                keyPressed = false;
+                activeKey = null;
+
+                const button = document.getElementById('force-voice-btn');
+                if (button) {
+                    button.style.transform = '';
+                    button.style.boxShadow = '';
+                }
+                stopRecording();
+                console.log('🎹 页面失焦，停止录音');
+            }
+        });
+
+        console.log('⌨️ 键盘支持已启用');
+        console.log('💡 支持的快捷键:');
+        console.log('   🔥 主要推荐: Ctrl+Shift+C (最可靠)');
+        console.log('   ⚡ 备用选择: Alt+V, Ctrl+M');
+        console.log('   🎮 功能键: F1, F2');
+        console.log('   ❌ Copilot键: 由于Windows限制，暂不支持');
+
+        // 显示键盘支持提示
+        setTimeout(() => {
+            showStatus('⌨️ 推荐使用 Ctrl+Shift+C 进行录音', 'info', 5000);
+        }, 2000);
     }
 
     // 延迟初始化，确保页面完全加载

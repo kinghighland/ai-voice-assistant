@@ -77,13 +77,14 @@ COMMAND_PATTERNS = {
         }
     },
     "系统操作": {
-        "keywords": ["关闭", "退出", "结束", "停止", "重启", "关机"],
+        "keywords": ["关闭", "退出", "结束", "停止", "重启", "关机", "锁屏", "休眠", "待机", "睡眠", "截图"],
         "targets": {
             "关机": ["关机", "shutdown", "关闭电脑"],
             "重启": ["重启", "restart", "重新启动"],
             "注销": ["注销", "logout", "登出"],
             "锁屏": ["锁屏", "lock", "锁定屏幕"],
-            "休眠": ["休眠", "sleep", "待机"]
+            "休眠": ["休眠", "sleep", "待机", "睡眠"],
+            "截图": ["截图", "screenshot", "屏幕截图"]
         }
     },
     "文件操作": {
@@ -294,14 +295,13 @@ def smart_command_detection(text: str) -> tuple[bool, str, str]:
                 if any(alias in text_lower for alias in target_aliases):
                     return True, cmd_type, target_name
     
-    # 特殊情况：直接说应用名称
+    # 特殊情况：直接说目标名称 (扩展到所有指令类型)
     for cmd_type, config in COMMAND_PATTERNS.items():
-        if cmd_type in ["应用程序", "网站"]:
-            for target_name, target_aliases in config["targets"].items():
-                if any(alias in text_lower for alias in target_aliases):
-                    # 如果文本很短且主要是应用名称，认为是指令
-                    if len(text.strip()) <= 10:
-                        return True, cmd_type, target_name
+        for target_name, target_aliases in config["targets"].items():
+            if any(alias in text_lower for alias in target_aliases):
+                # 如果文本很短且主要是目标名称，认为是指令
+                if len(text.strip()) <= 10:
+                    return True, cmd_type, target_name
     
     return False, "", ""
 
@@ -413,22 +413,175 @@ def execute_enhanced_command(cmd_type: str, target: str, original_text: str) -> 
                     "关机": "shutdown /s /t 0",
                     "重启": "shutdown /r /t 0", 
                     "注销": "shutdown /l",
-                    "锁屏": "rundll32.exe user32.dll,LockWorkStation"
+                    "休眠": "rundll32.exe powrprof.dll,SetSuspendState 0,1,0",  # 添加休眠命令
+                    "锁屏": "rundll32.exe user32.dll,LockWorkStation",
+                    "截图": "snippingtool"
                 }
                 
                 if target in operations:
-                    # 危险操作需要确认
-                    if target in ["关机", "重启", "注销"]:
-                        return f"⚠️ 检测到{target}命令，请手动确认执行"
-                    else:
-                        subprocess.run(operations[target], shell=True)
-                        return f"✅ 已执行{target}"
-        
-        elif cmd_type == "文件操作":
-            if target == "截图" and system == 'windows':
-                # 使用Windows截图工具
-                subprocess.run("snippingtool", shell=True)
-                return "✅ 已打开截图工具"
+                    try:
+                        cmd = operations[target]
+                        logger.info(f"执行系统操作: {target}, 命令: {cmd}")
+                        
+                        # 危险操作需要确认
+                        if target in ["关机", "重启", "注销"]:
+                            return f"⚠️ 检测到{target}命令，请手动确认执行"
+                        
+                        # 特殊处理不同类型的系统操作
+                        if target == "休眠":
+                            try:
+                                logger.info("开始执行休眠操作")
+                                
+                                # 选择最可靠的休眠方法，只尝试一次
+                                # 优先使用 shutdown /h，这是最标准和可靠的方法
+                                hibernate_cmd = "shutdown /h"
+                                
+                                logger.info(f"执行休眠命令: {hibernate_cmd}")
+                                
+                                # 使用 Popen 异步执行，避免等待返回值
+                                # 因为休眠命令执行后系统会立即暂停，无法返回结果
+                                import subprocess
+                                process = subprocess.Popen(
+                                    hibernate_cmd,
+                                    shell=True,
+                                    stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL
+                                )
+                                
+                                # 不等待进程结束，立即返回成功
+                                logger.info("休眠命令已发送，系统即将进入休眠状态")
+                                return f"✅ 系统正在进入休眠状态"
+                                
+                            except Exception as hibernate_e:
+                                logger.error(f"休眠命令执行异常: {hibernate_e}")
+                                
+                                # 如果主方法失败，尝试备用方法
+                                try:
+                                    logger.info("尝试备用休眠方法")
+                                    backup_cmd = "rundll32.exe powrprof.dll,SetSuspendState 0,1,0"
+                                    
+                                    process = subprocess.Popen(
+                                        backup_cmd,
+                                        shell=True,
+                                        stdout=subprocess.DEVNULL,
+                                        stderr=subprocess.DEVNULL
+                                    )
+                                    
+                                    logger.info("备用休眠命令已发送")
+                                    return f"✅ 系统正在进入休眠状态"
+                                    
+                                except Exception as backup_e:
+                                    logger.error(f"备用休眠方法也失败: {backup_e}")
+                                    return f"❌ 休眠失败，请检查系统休眠设置或手动按电源键选择休眠"
+                        
+                        elif target == "锁屏":
+                            try:
+                                # 尝试多种锁屏方法
+                                lock_methods = [
+                                    "rundll32.exe user32.dll,LockWorkStation",
+                                    "powershell -Command \"(New-Object -ComObject Shell.Application).WindowsSecurity()\"",
+                                    "cmd /c start /min rundll32.exe user32.dll,LockWorkStation"
+                                ]
+                                
+                                success = False
+                                for lock_cmd in lock_methods:
+                                    try:
+                                        logger.info(f"尝试锁屏方法: {lock_cmd}")
+                                        result = subprocess.run(
+                                            lock_cmd, 
+                                            shell=True, 
+                                            capture_output=True,
+                                            text=True,
+                                            timeout=5
+                                        )
+                                        
+                                        # 锁屏命令通常返回0表示成功
+                                        if result.returncode == 0:
+                                            success = True
+                                            logger.info(f"锁屏成功: {lock_cmd}")
+                                            break
+                                        else:
+                                            logger.warning(f"锁屏方法失败: {lock_cmd}, 返回码: {result.returncode}, 错误: {result.stderr}")
+                                            
+                                    except Exception as inner_e:
+                                        logger.warning(f"锁屏方法异常: {lock_cmd}, 错误: {inner_e}")
+                                        continue
+                                
+                                if success:
+                                    return f"✅ 屏幕已锁定"
+                                else:
+                                    logger.error("所有锁屏方法都失败")
+                                    return f"❌ 锁屏失败，请手动按Win+L"
+                                    
+                            except Exception as lock_e:
+                                logger.error(f"锁屏异常: {lock_e}")
+                                return f"❌ 锁屏失败: {str(lock_e)}"
+                        
+                        elif target == "截图":
+                            try:
+                                # 尝试多种截图方法
+                                screenshot_commands = [
+                                    "snippingtool",  # Windows截图工具
+                                    "ms-screenclip:",  # Windows 10/11截图
+                                    "start ms-screenclip:",  # 备用方法
+                                ]
+                                
+                                success = False
+                                for screenshot_cmd in screenshot_commands:
+                                    try:
+                                        result = subprocess.run(
+                                            screenshot_cmd, 
+                                            shell=True, 
+                                            capture_output=True,
+                                            text=True,
+                                            timeout=5
+                                        )
+                                        
+                                        if result.returncode == 0:
+                                            success = True
+                                            logger.info(f"截图工具启动成功: {screenshot_cmd}")
+                                            break
+                                        else:
+                                            logger.warning(f"截图命令失败: {screenshot_cmd}, 错误: {result.stderr}")
+                                            
+                                    except Exception as inner_e:
+                                        logger.warning(f"截图命令异常: {screenshot_cmd}, 错误: {inner_e}")
+                                        continue
+                                
+                                if success:
+                                    return f"✅ 截图工具已启动"
+                                else:
+                                    # 最后尝试使用Print Screen键
+                                    logger.info("尝试模拟Print Screen键")
+                                    return f"⚠️ 截图工具启动可能失败，请尝试按Print Screen键"
+                                    
+                            except Exception as screenshot_e:
+                                logger.error(f"截图失败: {screenshot_e}")
+                                return f"❌ 截图失败: {str(screenshot_e)}"
+                        
+                        else:
+                            # 其他系统操作
+                            result = subprocess.run(
+                                cmd, 
+                                shell=True, 
+                                capture_output=True, 
+                                text=True,
+                                timeout=10
+                            )
+                            
+                            if result.returncode == 0:
+                                logger.info(f"系统操作成功: {target}")
+                                return f"✅ 已执行{target}"
+                            else:
+                                logger.warning(f"系统操作失败: {target}, 错误: {result.stderr}")
+                                return f"⚠️ {target}执行可能失败: {result.stderr}"
+                                
+                    except subprocess.TimeoutExpired:
+                        logger.warning(f"系统操作超时: {target}")
+                        return f"⚠️ {target}执行超时，但可能已生效"
+                    except Exception as e:
+                        logger.error(f"系统操作异常: {target}, 错误: {e}")
+                        return f"❌ {target}执行失败: {str(e)}"
     
     except Exception as e:
         logger.error(f"执行命令错误: {str(e)}")
