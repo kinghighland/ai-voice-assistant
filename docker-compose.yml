@@ -22,4 +22,5 @@ volumes:
   open-webui:
 
 # 注意: 语音助手API现在在主机上运行
-# 启动命令: python voice_api_server.py
+# 启动命令: python voice_api_server_optimized.py
+# 或使用容器化版本: docker-compose -f docker-compose-full.yml up

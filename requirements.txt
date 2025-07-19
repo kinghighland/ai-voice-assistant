@@ -1,9 +1,32 @@
+# 核心框架
 fastapi==0.104.1
 uvicorn==0.24.0
+pydantic==2.5.0
+
+# 文件上传支持
 python-multipart==0.0.6
+
+# AI模型
 openai-whisper==20231117
+
+# PyTorch (CPU版本，GPU用户需要单独安装CUDA版本)
 torch==2.1.0
 torchaudio==2.1.0
+
+# 网络请求
 requests==2.31.0
-pydantic==2.5.0
+
+# 数据处理
 numpy==1.24.3
+
+# 进度条显示
+tqdm==4.66.1
+
+# 系统操作
+psutil==5.9.6
+
+# 日志处理
+colorlog==6.8.0
+
+# ModelScope快速下载 (可选)
+modelscope==1.9.5

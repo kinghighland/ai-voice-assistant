@@ -262,9 +262,23 @@
             }
 
             console.log('✅ 转录结果:', text);
-            showStatus(`✅ "${text}"`, 'success');
+            console.log('🔍 指令检测:', result.is_command ? `${result.command_type} - ${result.command_target}` : '普通对话');
 
-            insertText(text);
+            // 显示转录结果和指令类型
+            const statusText = result.is_command ?
+                `🎯 指令: "${text}"` :
+                `💬 对话: "${text}"`;
+            showStatus(statusText, 'success');
+
+            // 使用后端的智能判断结果
+            if (result.is_command) {
+                console.log('🎯 检测到语音指令:', text);
+                showStatus('🔧 执行指令中...', 'processing');
+                handleVoiceCommand(text);
+            } else {
+                console.log('💬 普通文本消息:', text);
+                insertTextToChat(text);
+            }
 
         } catch (error) {
             console.error('处理失败:', error);
@@ -455,11 +469,14 @@
         showStatus('⚠️ 请手动点击发送', 'error');
     }
 
-    // 主要的文本处理函数
-    function insertText(text) {
-        // 首先检查是否为语音指令
-        if (isVoiceCommand(text)) {
-            console.log('🎯 检测到语音指令:', text);
+    // 主要的文本处理函数 - 处理后端返回的结果
+    function insertText(result) {
+        const text = result.transcribed_text || result;
+
+        // 使用后端的智能判断结果
+        if (result.is_command) {
+            console.log('🎯 后端检测到语音指令:', text);
+            console.log('📋 指令类型:', result.command_type, '目标:', result.command_target);
             showStatus('🔧 执行指令中...', 'processing');
             handleVoiceCommand(text);
         } else {
