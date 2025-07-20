@@ -476,45 +476,80 @@ def execute_enhanced_command(cmd_type: str, target: str, original_text: str) -> 
                         
                         elif target == "锁屏":
                             try:
-                                # 尝试多种锁屏方法
-                                lock_methods = [
-                                    "rundll32.exe user32.dll,LockWorkStation",
-                                    "powershell -Command \"(New-Object -ComObject Shell.Application).WindowsSecurity()\"",
-                                    "cmd /c start /min rundll32.exe user32.dll,LockWorkStation"
-                                ]
+                                logger.info("开始执行锁屏操作")
                                 
-                                success = False
-                                for lock_cmd in lock_methods:
-                                    try:
-                                        logger.info(f"尝试锁屏方法: {lock_cmd}")
-                                        result = subprocess.run(
-                                            lock_cmd, 
-                                            shell=True, 
-                                            capture_output=True,
-                                            text=True,
-                                            timeout=5
-                                        )
-                                        
-                                        # 锁屏命令通常返回0表示成功
-                                        if result.returncode == 0:
-                                            success = True
-                                            logger.info(f"锁屏成功: {lock_cmd}")
-                                            break
-                                        else:
-                                            logger.warning(f"锁屏方法失败: {lock_cmd}, 返回码: {result.returncode}, 错误: {result.stderr}")
-                                            
-                                    except Exception as inner_e:
-                                        logger.warning(f"锁屏方法异常: {lock_cmd}, 错误: {inner_e}")
-                                        continue
-                                
-                                if success:
-                                    return f"✅ 屏幕已锁定"
-                                else:
-                                    logger.error("所有锁屏方法都失败")
-                                    return f"❌ 锁屏失败，请手动按Win+L"
+                                # 方法1: 使用Windows API (最可靠)
+                                try:
+                                    import ctypes
                                     
+                                    logger.info("使用Windows API锁屏")
+                                    user32 = ctypes.windll.user32
+                                    result = user32.LockWorkStation()
+                                    
+                                    if result != 0:
+                                        logger.info("Windows API锁屏成功")
+                                        return f"✅ 屏幕已锁定"
+                                    else:
+                                        logger.warning("Windows API锁屏失败，尝试备用方法")
+                                        
+                                except Exception as api_e:
+                                    logger.warning(f"Windows API锁屏异常: {api_e}")
+                                
+                                # 方法2: 使用rundll32命令 (备用方法)
+                                try:
+                                    logger.info("使用rundll32命令锁屏")
+                                    
+                                    result = subprocess.run(
+                                        "rundll32.exe user32.dll,LockWorkStation",
+                                        shell=True,
+                                        timeout=3,
+                                        check=False
+                                    )
+                                    
+                                    logger.info(f"rundll32锁屏执行完成，返回码: {result.returncode}")
+                                    
+                                    # rundll32返回0表示成功
+                                    if result.returncode == 0:
+                                        return f"✅ 屏幕已锁定"
+                                    else:
+                                        logger.warning("rundll32锁屏失败，尝试最后的方法")
+                                        
+                                except subprocess.TimeoutExpired:
+                                    logger.info("rundll32锁屏超时，但可能已成功")
+                                    return f"✅ 屏幕已锁定"
+                                except Exception as cmd_e:
+                                    logger.warning(f"rundll32锁屏异常: {cmd_e}")
+                                
+                                # 方法3: 使用PowerShell (最后的备用)
+                                try:
+                                    logger.info("使用PowerShell锁屏")
+                                    
+                                    result = subprocess.run(
+                                        'powershell -Command "rundll32.exe user32.dll,LockWorkStation"',
+                                        shell=True,
+                                        timeout=3,
+                                        check=False
+                                    )
+                                    
+                                    logger.info(f"PowerShell锁屏执行完成，返回码: {result.returncode}")
+                                    
+                                    if result.returncode == 0:
+                                        return f"✅ 屏幕已锁定"
+                                    else:
+                                        logger.error("PowerShell锁屏也失败")
+                                        
+                                except subprocess.TimeoutExpired:
+                                    logger.info("PowerShell锁屏超时，但可能已成功")
+                                    return f"✅ 屏幕已锁定"
+                                except Exception as ps_e:
+                                    logger.error(f"PowerShell锁屏异常: {ps_e}")
+                                
+                                # 所有方法都失败
+                                logger.error("所有锁屏方法都失败")
+                                return f"❌ 锁屏失败，请手动按 Win+L 锁屏"
+                                
                             except Exception as lock_e:
-                                logger.error(f"锁屏异常: {lock_e}")
+                                logger.error(f"锁屏操作异常: {lock_e}")
                                 return f"❌ 锁屏失败: {str(lock_e)}"
                         
                         elif target == "截图":
